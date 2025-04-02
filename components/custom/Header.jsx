@@ -45,7 +45,21 @@ function Header() {
         localStorage.clear();
         googleLogout();
         setUserData(null);
-        reloadPage();
+        route.push('/');
+        setTimeout(() => {
+            reloadPage();
+        }, 2000);
+
+        setTimeout(() => {
+            toast.error("Logout seccessfully!", {
+                description: "",
+                action: {
+                    label: "Ok",
+                    onClick: () => console.log("ok"),
+                },
+            })
+        }, 5000);
+
     };
 
     return (
