@@ -60,14 +60,20 @@ export function NavUser({
     googleLogout();
     setUserData(null);
     route.push('/');
-    reloadPage();
-    toast.error("Logout seccessfully!", {
-      description: "",
-      action: {
-        label: "Ok",
-        onClick: () => console.log("ok"),
-      },
-    })
+    setTimeout(() => {
+      reloadPage();
+    }, 3000);
+
+    setTimeout(() => {
+      toast.error("Logout seccessfully!", {
+        description: "",
+        action: {
+          label: "Ok",
+          onClick: () => console.log("ok"),
+        },
+      })
+    }, 5000);
+
   };
 
   return (
