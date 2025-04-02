@@ -62,7 +62,7 @@ export function NavUser({
     route.push('/');
     setTimeout(() => {
       reloadPage();
-    }, 3000);
+    }, 2000);
 
     setTimeout(() => {
       toast.error("Logout seccessfully!", {
