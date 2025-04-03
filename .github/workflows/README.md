@@ -2,42 +2,48 @@
 
 This document describes the Continuous Integration and Continuous Deployment (CI/CD) pipeline for the Next-Dev project.
 
-## Workflows
+## Consolidated Workflow
 
-### CI Workflow (`ci.yml`)
+The CI/CD pipeline is implemented in a single workflow file (`ci-cd.yml`) that handles all aspects of the development lifecycle:
 
-The CI workflow runs on every push to the `main` and `develop` branches, as well as on pull requests to these branches. It consists of the following jobs:
+### Triggers
 
-1. **Lint**: Runs ESLint to check code quality and style.
-2. **Test**: Runs Jest tests and generates coverage reports.
-3. **Build**: Builds the Next.js application and uploads the build artifacts.
+The workflow is triggered by:
+- **Push** to `main` or `develop` branches
+- **Pull Requests** to `main` or `develop` branches
+- **Manual Trigger** (workflow_dispatch) with an option to deploy to production
 
-### CD Workflow (`cd.yml`)
+### Jobs
 
-The CD workflow handles deployments to different environments:
+1. **Lint and Test**
+   - Runs ESLint for code quality checks
+   - Executes Jest tests
+   - Generates test coverage reports
 
-1. **Deploy to Staging**: Automatically deploys to the staging environment when code is pushed to the `main` branch.
-2. **Deploy to Production**: Deploys to production when manually triggered via workflow dispatch. This job runs only after the staging deployment is successful.
+2. **Security Scan**
+   - Performs npm audit to check for vulnerable dependencies
+   - Runs CodeQL analysis for security vulnerabilities
 
-### Preview Workflow (`preview.yml`)
+3. **Build**
+   - Builds the Next.js application
+   - Uploads build artifacts for use in deployment jobs
 
-The preview workflow creates temporary deployments for pull requests:
+4. **Deploy Preview** (Pull Requests only)
+   - Creates a preview deployment for each pull request
+   - Generates a unique URL based on the PR number
 
-1. **Deploy PR Preview**: Creates a preview deployment for each pull request, with a unique URL based on the PR number.
+5. **Deploy to Staging** (Push to main branch only)
+   - Automatically deploys to the staging environment
+   - Uses the build artifacts from the build job
 
-### Security Workflow (`security.yml`)
+6. **Deploy to Production** (Manual trigger only)
+   - Deploys to production when manually triggered
+   - Requires explicit approval via workflow dispatch
+   - Runs only after the staging deployment is successful
 
-The security workflow runs security checks:
-
-1. **Dependency Review**: Reviews dependencies for security vulnerabilities.
-2. **CodeQL Analysis**: Performs static code analysis to find security issues.
-3. **NPM Audit**: Runs npm audit to check for vulnerable dependencies.
-
-### Cache Invalidation Workflow (`cache-invalidation.yml`)
-
-This workflow runs when dependencies change:
-
-1. **Invalidate Cache**: Triggers cache invalidation when `package.json` or `package-lock.json` changes.
+7. **Cache Invalidation** (Push to main branch only)
+   - Checks for changes to package.json or package-lock.json
+   - Triggers cache invalidation when dependencies change
 
 ## Environment Variables
 
@@ -67,11 +73,21 @@ The following secrets need to be configured in the GitHub repository:
 
 ## Deployment Strategy
 
-1. **Pull Request**: Creates a preview deployment for testing changes.
-2. **Merge to Main**: Automatically deploys to staging.
-3. **Manual Promotion**: Manually trigger the CD workflow to deploy to production.
+The workflow implements a progressive deployment strategy:
+
+1. **Pull Request**: Creates a preview deployment for testing changes
+2. **Merge to Main**: Automatically deploys to staging
+3. **Manual Promotion**: Manually trigger the workflow with the "deploy_to_production" option to deploy to production
+
+## Benefits of Consolidated Workflow
+
+- **Simplified Management**: All CI/CD processes in a single file
+- **Consistent Dependencies**: All jobs use the same Node.js version and dependency installation
+- **Artifact Sharing**: Build artifacts are shared between jobs
+- **Clear Progression**: Clear progression from testing to staging to production
+- **Manual Control**: Production deployments require explicit approval
 
 ## Monitoring and Rollbacks
 
-- Deployments are monitored through Vercel's dashboard.
-- Rollbacks can be performed by redeploying a previous build in Vercel or by reverting commits and pushing to the main branch.
+- Deployments are monitored through Vercel's dashboard
+- Rollbacks can be performed by redeploying a previous build in Vercel or by reverting commits and pushing to the main branch
