@@ -1,0 +1,21 @@
+# .github/dependabot.yml
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    # Look for `package.json` and `lock` files in the root directory
+    directory: "/"
+    # Check for updates daily (other options: "weekly", "monthly")
+    schedule:
+      interval: "daily"
+    # Optionally, specify reviewers and assignees for Dependabot PRs
+    # reviewers:
+    #   - "your-github-username"
+    # assignees:
+    #   - "your-github-username"
+    # Optionally, group updates to reduce noise
+    # groups:
+    #   react-dependencies:
+    #     patterns:
+    #       - "react"
+    #       - "react-dom"
