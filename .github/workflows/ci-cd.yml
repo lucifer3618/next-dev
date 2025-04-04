@@ -50,6 +50,11 @@ jobs:
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
+    # Add permissions needed for CodeQL
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -66,10 +71,29 @@ jobs:
       - name: Run npm audit
         run: npm audit --audit-level=high || true
 
+      # Split CodeQL into a separate job to avoid permission issues
+
+  # CodeQL analysis job
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    # Add required permissions for CodeQL
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v2
         with:
           languages: javascript
+
+      # Autobuild attempts to build any compiled languages
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v2
@@ -77,7 +101,7 @@ jobs:
   # Build job - runs for all events
   build:
     name: Build
-    needs: [lint-and-test, security-scan]
+    needs: [lint-and-test, security-scan, codeql-analysis]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

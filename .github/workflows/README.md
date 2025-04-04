@@ -22,26 +22,29 @@ The workflow is triggered by:
 
 2. **Security Scan**
    - Performs npm audit to check for vulnerable dependencies
-   - Runs CodeQL analysis for security vulnerabilities
 
-3. **Build**
+3. **CodeQL Analysis**
+   - Runs CodeQL static analysis for security vulnerabilities
+   - Uses proper permissions for security events
+
+4. **Build**
    - Builds the Next.js application
    - Uploads build artifacts for use in deployment jobs
 
-4. **Deploy Preview** (Pull Requests only)
+5. **Deploy Preview** (Pull Requests only)
    - Creates a preview deployment for each pull request
    - Generates a unique URL based on the PR number
 
-5. **Deploy to Staging** (Push to main branch only)
+6. **Deploy to Staging** (Push to main branch only)
    - Automatically deploys to the staging environment
    - Uses the build artifacts from the build job
 
-6. **Deploy to Production** (Manual trigger only)
+7. **Deploy to Production** (Manual trigger only)
    - Deploys to production when manually triggered
    - Requires explicit approval via workflow dispatch
    - Runs only after the staging deployment is successful
 
-7. **Cache Invalidation** (Push to main branch only)
+8. **Cache Invalidation** (Push to main branch only)
    - Checks for changes to package.json or package-lock.json
    - Triggers cache invalidation when dependencies change
 
