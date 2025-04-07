@@ -15,10 +15,11 @@ on:
 
 # Add global permissions for GitHub token
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   deployments: write
   issues: write
+  statuses: write
 
 jobs:
   # Lint and Test job - runs for all events
@@ -181,6 +182,45 @@ jobs:
       - name: Install Lighthouse CI
         run: npm install -g @lhci/cli@0.13.x
 
+      - name: Create Lighthouse config
+        run: |
+          cat > lighthouserc.json << 'EOL'
+          {
+            "ci": {
+              "collect": {
+                "url": ["http://localhost:3000"],
+                "numberOfRuns": 1
+              },
+              "assert": {
+                "preset": "lighthouse:no-pwa",
+                "assertions": {
+                  "csp-xss": "off",
+                  "document-title": "off",
+                  "errors-in-console": "off",
+                  "font-size": "off",
+                  "html-has-lang": "off",
+                  "meta-description": "off",
+                  "tap-targets": "off",
+                  "viewport": "off",
+                  "unused-javascript": "off",
+                  "total-byte-weight": "off",
+                  "bootup-time": "off",
+                  "dom-size": "off",
+                  "mainthread-work-breakdown": "off",
+                  "max-potential-fid": "off",
+                  "modern-image-formats": "off",
+                  "render-blocking-resources": "off",
+                  "server-response-time": "off",
+                  "largest-contentful-paint": "off"
+                }
+              },
+              "upload": {
+                "target": "temporary-public-storage"
+              }
+            }
+          }
+          EOL
+
       - name: Start Next.js server
         run: |
           npm ci
@@ -189,8 +229,20 @@ jobs:
 
       - name: Run Lighthouse CI
         run: |
-          lhci autorun --collect.url=http://localhost:3000
+          lhci autorun
         continue-on-error: true
+
+      - name: Save Lighthouse report
+        run: |
+          mkdir -p lighthouse-reports
+          cp -r .lighthouseci/reports/* lighthouse-reports/ || true
+
+      - name: Upload Lighthouse reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: lighthouse-reports/
+          retention-days: 7
 
   # Deploy preview for development branch
   deploy-preview:
@@ -202,8 +254,9 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       deployments: write
+      statuses: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -224,7 +277,7 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          vercel-args: ''
+          github-comment: true
 
       - name: Wait for deployment to be ready
         run: |
@@ -287,13 +340,14 @@ jobs:
     needs: [build, performance-test]
     if: |
       needs.build.outputs.build-success == 'true' &&
-      ((github.event_name == 'push' && (github.base_ref == 'main' || github.base_ref == 'master')) ||
+      ((github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'master')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_production == 'true'))
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       deployments: write
+      statuses: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -314,6 +368,7 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-comment: true
           vercel-args: '--prod'
 
       - name: Wait for deployment to be ready

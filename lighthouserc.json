@@ -1,0 +1,34 @@
+{
+  "ci": {
+    "collect": {
+      "url": ["http://localhost:3000"],
+      "numberOfRuns": 1
+    },
+    "assert": {
+      "preset": "lighthouse:no-pwa",
+      "assertions": {
+        "csp-xss": "warn",
+        "document-title": "warn",
+        "errors-in-console": "warn",
+        "font-size": "warn",
+        "html-has-lang": "warn",
+        "meta-description": "warn",
+        "tap-targets": "warn",
+        "viewport": "warn",
+        "unused-javascript": "warn",
+        "total-byte-weight": "warn",
+        "bootup-time": "warn",
+        "dom-size": "warn",
+        "mainthread-work-breakdown": "warn",
+        "max-potential-fid": "warn",
+        "modern-image-formats": "warn",
+        "render-blocking-resources": "warn",
+        "server-response-time": "warn",
+        "largest-contentful-paint": "warn"
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}
