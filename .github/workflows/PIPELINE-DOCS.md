@@ -36,6 +36,8 @@ The pipeline consists of the following jobs:
 4. **Performance Testing**
    - Runs Lighthouse CI to test performance metrics
    - Provides insights on performance, accessibility, and best practices
+   - Uploads Lighthouse reports as artifacts for review
+   - Uses a custom configuration to prevent pipeline failures
    - Runs only if the build is successful
 
 5. **Deploy Preview**
