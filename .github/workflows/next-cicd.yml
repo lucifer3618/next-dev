@@ -272,6 +272,10 @@ jobs:
       - name: Deploy to Vercel (Preview)
         id: preview-deployment
         uses: amondnet/vercel-action@v25
+        env:
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+          NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_AUTH_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
@@ -279,6 +283,10 @@ jobs:
           github-token: ${{ secrets.GH_PAT }}
           github-comment: true
           working-directory: ./
+          build-env: |
+            NEXT_PUBLIC_CONVEX_URL=${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+            NEXT_PUBLIC_GEMINI_API_KEY=${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+            NEXT_PUBLIC_GOOGLE_AUTH_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
 
       - name: Wait for deployment to be ready
         run: |
@@ -364,6 +372,10 @@ jobs:
       - name: Deploy to Vercel (Production)
         id: prod-deployment
         uses: amondnet/vercel-action@v25
+        env:
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+          NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_AUTH_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
@@ -371,6 +383,10 @@ jobs:
           github-token: ${{ secrets.GH_PAT }}
           github-comment: true
           working-directory: ./
+          build-env: |
+            NEXT_PUBLIC_CONVEX_URL=${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+            NEXT_PUBLIC_GEMINI_API_KEY=${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+            NEXT_PUBLIC_GOOGLE_AUTH_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
           vercel-args: '--prod'
 
       - name: Wait for deployment to be ready
