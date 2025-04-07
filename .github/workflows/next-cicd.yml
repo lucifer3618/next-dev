@@ -276,8 +276,9 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           github-comment: true
+          working-directory: ./
 
       - name: Wait for deployment to be ready
         run: |
@@ -313,7 +314,7 @@ jobs:
         if: steps.health-check.outputs.status == 'success'
         uses: chrnorm/deployment-status@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           state: "success"
           deployment-id: ${{ github.run_id }}
           environment-url: ${{ steps.preview-deployment.outputs.preview-url }}
@@ -367,8 +368,9 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GH_PAT }}
           github-comment: true
+          working-directory: ./
           vercel-args: '--prod'
 
       - name: Wait for deployment to be ready
@@ -405,7 +407,7 @@ jobs:
         if: steps.health-check.outputs.status == 'success'
         uses: chrnorm/deployment-status@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           state: "success"
           deployment-id: ${{ github.run_id }}
           environment-url: ${{ steps.prod-deployment.outputs.preview-url }}
