@@ -15,10 +15,11 @@ on:
 
 # Add global permissions for GitHub token
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   deployments: write
   issues: write
+  statuses: write
 
 jobs:
   # Lint and Test job - runs for all events
@@ -253,8 +254,9 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       deployments: write
+      statuses: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -275,6 +277,7 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-comment: true
 
       - name: Wait for deployment to be ready
         run: |
@@ -342,8 +345,9 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write
       deployments: write
+      statuses: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -364,6 +368,7 @@ jobs:
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-comment: true
           vercel-args: '--prod'
 
       - name: Wait for deployment to be ready
