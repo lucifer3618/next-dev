@@ -1,0 +1,88 @@
+name: Rollback Production Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    name: Rollback to Previous Deployment
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      deployments: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Download the deployment info from the latest successful deployment
+      - name: Download deployment info
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-info
+          path: ./deployment-info
+      
+      - name: Get previous deployment URL
+        id: get-url
+        run: |
+          if [ -f "./deployment-info/.vercel-latest-deployment" ]; then
+            PREVIOUS_URL=$(cat ./deployment-info/.vercel-latest-deployment)
+            echo "previous_url=$PREVIOUS_URL" >> $GITHUB_OUTPUT
+            echo "Found previous deployment URL: $PREVIOUS_URL"
+          else
+            echo "No previous deployment URL found. Manual rollback required."
+            exit 1
+          fi
+      
+      # Reassign the production alias to the previous deployment
+      - name: Rollback to previous deployment
+        if: steps.get-url.outputs.previous_url != ''
+        run: |
+          PREVIOUS_URL="${{ steps.get-url.outputs.previous_url }}"
+          PROD_ALIAS="next-dev-pi.vercel.app"
+          
+          echo "Rolling back production to $PREVIOUS_URL"
+          
+          # Use retry mechanism for alias assignment
+          MAX_RETRIES=5
+          RETRY_DELAY=15
+          
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            echo "Attempt $i of $MAX_RETRIES"
+            if npx vercel@latest -t ${{ secrets.VERCEL_TOKEN }} alias $PREVIOUS_URL $PROD_ALIAS; then
+              echo "Successfully rolled back to previous deployment!"
+              break
+            else
+              if [ $i -lt $MAX_RETRIES ]; then
+                echo "Rollback failed. Waiting for $RETRY_DELAY seconds before retry..."
+                sleep $RETRY_DELAY
+              else
+                echo "Failed to rollback after $MAX_RETRIES attempts. Manual intervention required."
+                exit 1
+              fi
+            fi
+          done
+      
+      # Create GitHub deployment status for the rollback
+      - name: Create Rollback Deployment Status
+        if: steps.get-url.outputs.previous_url != ''
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          state: "success"
+          deployment-id: ${{ github.run_id }}
+          environment-url: "https://next-dev-pi.vercel.app"
+          description: "Rolled back to previous deployment. Reason: ${{ github.event.inputs.reason }}"
+      
+      # Notify about rollback
+      - name: Send rollback notification
+        run: |
+          echo "✅ Production rollback completed! Site is now using previous deployment."
+          echo "Rollback reason: ${{ github.event.inputs.reason }}"
+          echo "Triggered by: ${{ github.actor }}"

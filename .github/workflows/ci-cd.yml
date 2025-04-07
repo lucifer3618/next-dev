@@ -1,0 +1,582 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+  workflow_dispatch:
+    inputs:
+      deploy_to_production:
+        description: 'Deploy to production'
+        type: boolean
+        default: false
+        required: true
+
+# Add global permissions for GitHub token
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+  issues: write
+
+jobs:
+  # Lint and Test job - runs for all events
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    # Add specific permissions for this job
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for commit linting
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: false
+
+      - name: Run tests
+        id: jest
+        run: npm test
+
+      - name: Generate test coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+      # Add a step to publish test results as GitHub check
+      - name: Publish Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: |
+            coverage/junit.xml
+          check_name: "Test Results"
+          comment_mode: "always"
+          comment_title: "Test Results"
+
+      # Add a step to comment on PRs with test coverage
+      - name: Generate Coverage Summary
+        if: github.event_name == 'pull_request'
+        id: coverage-summary
+        run: |
+          if [ -f coverage/coverage-summary.txt ]; then
+            statements=$(grep -o 'statements.*' coverage/coverage-summary.txt | sed 's/statements: \(.*\)/\1/' || echo "N/A")
+            branches=$(grep -o 'branches.*' coverage/coverage-summary.txt | sed 's/branches: \(.*\)/\1/' || echo "N/A")
+            functions=$(grep -o 'functions.*' coverage/coverage-summary.txt | sed 's/functions: \(.*\)/\1/' || echo "N/A")
+            lines=$(grep -o 'lines.*' coverage/coverage-summary.txt | sed 's/lines: \(.*\)/\1/' || echo "N/A")
+
+            echo "statements=$statements" >> $GITHUB_OUTPUT
+            echo "branches=$branches" >> $GITHUB_OUTPUT
+            echo "functions=$functions" >> $GITHUB_OUTPUT
+            echo "lines=$lines" >> $GITHUB_OUTPUT
+          else
+            echo "statements=N/A" >> $GITHUB_OUTPUT
+            echo "branches=N/A" >> $GITHUB_OUTPUT
+            echo "functions=N/A" >> $GITHUB_OUTPUT
+            echo "lines=N/A" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment Test Coverage
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: test-coverage
+          message: |
+            ## Test Coverage Report
+
+            | Category | Coverage |
+            | -------- | -------- |
+            | Statements | ${{ steps.coverage-summary.outputs.statements }} |
+            | Branches | ${{ steps.coverage-summary.outputs.branches }} |
+            | Functions | ${{ steps.coverage-summary.outputs.functions }} |
+            | Lines | ${{ steps.coverage-summary.outputs.lines }} |
+
+  # Security scanning job - runs for all events
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    # Add permissions needed for security scanning
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        id: npm-audit
+        run: |
+          set +e
+          npm audit --json > npm-audit-results.json 2>/dev/null || echo '{"vulnerabilities":{}}' > npm-audit-results.json
+          audit_exit_code=$?
+          set -e
+          echo "NPM audit exit code: $audit_exit_code"
+
+          # Count high and critical vulnerabilities using a more reliable method
+          if [ -s npm-audit-results.json ]; then
+            # Check if file is valid JSON and contains vulnerabilities
+            if jq -e '.vulnerabilities' npm-audit-results.json > /dev/null 2>&1; then
+              high_vulns=$(jq '[.vulnerabilities[] | select(.severity=="high")] | length' npm-audit-results.json)
+              critical_vulns=$(jq '[.vulnerabilities[] | select(.severity=="critical")] | length' npm-audit-results.json)
+            else
+              high_vulns=0
+              critical_vulns=0
+            fi
+          else
+            high_vulns=0
+            critical_vulns=0
+          fi
+
+          echo "High vulnerabilities: $high_vulns"
+          echo "Critical vulnerabilities: $critical_vulns"
+
+          # Set outputs for later steps
+          echo "high_vulns=$high_vulns" >> "$GITHUB_OUTPUT"
+          echo "critical_vulns=$critical_vulns" >> "$GITHUB_OUTPUT"
+
+          # Don't fail the build, we'll handle this in a separate step
+          exit 0
+
+      - name: Upload npm audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-results
+          path: npm-audit-results.json
+
+      - name: Check vulnerability threshold
+        run: |
+          # Get the vulnerability counts
+          high_vulns="${{ steps.npm-audit.outputs.high_vulns }}"
+          critical_vulns="${{ steps.npm-audit.outputs.critical_vulns }}"
+
+          # Default to 0 if empty or not a number
+          if ! [[ "$high_vulns" =~ ^[0-9]+$ ]]; then
+            high_vulns=0
+          fi
+
+          if ! [[ "$critical_vulns" =~ ^[0-9]+$ ]]; then
+            critical_vulns=0
+          fi
+
+          echo "High vulnerabilities: $high_vulns"
+          echo "Critical vulnerabilities: $critical_vulns"
+
+          # Warn but don't fail for high vulnerabilities
+          if [ "$high_vulns" -gt 0 ]; then
+            echo "::warning::Found $high_vulns high severity vulnerabilities"
+          fi
+
+          # Fail for critical vulnerabilities
+          if [ "$critical_vulns" -gt 0 ]; then
+            echo "::error::Found $critical_vulns critical severity vulnerabilities"
+            exit 1
+          fi
+
+      # Split CodeQL into a separate job to avoid permission issues
+
+  # CodeQL analysis job
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    # Add required permissions for CodeQL
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-extended,security-and-quality
+
+      # Autobuild attempts to build any compiled languages
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
+  # Build job - runs for all events
+  build:
+    name: Build
+    needs: [lint-and-test, security-scan, codeql-analysis]
+    runs-on: ubuntu-latest
+    # Add specific permissions for this job
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      build-success: ${{ steps.build-status.outputs.success }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        id: build-app
+        env:
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+        run: |
+          set +e
+          npm run build --debug
+          build_exit_code=$?
+          set -e
+          echo "Build exit code: $build_exit_code"
+          exit $build_exit_code
+
+      - name: Set build status
+        id: build-status
+        if: always()
+        run: |
+          if [ "${{ steps.build-app.outcome }}" == "success" ]; then
+            echo "success=true" >> $GITHUB_OUTPUT
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Archive build output
+        if: steps.build-app.outcome == 'success'
+        run: tar -czf build-output.tar.gz .next/
+
+      - name: Upload build artifact (tarball)
+        if: steps.build-app.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output # Artifact name remains the same
+          path: build-output.tar.gz # Upload the tarball
+
+  # PR Preview deployment - runs only for pull requests
+  deploy-preview:
+    name: Deploy PR Preview
+    if: github.event_name == 'pull_request'
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment: preview
+    # Add specific permissions for this job
+    permissions:
+      pull-requests: write
+      deployments: write
+    outputs:
+      preview-url: ${{ steps.set-preview-url.outputs.preview-url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifact (tarball)
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          # No path specified, downloads to current directory
+
+      - name: Extract build artifact
+        run: tar -xzf build-output.tar.gz # Extracts .next directory
+
+      # Example deployment to Vercel (preview)
+      - name: Deploy to Vercel (preview)
+        id: vercel-deployment
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          vercel-args: '--confirm'
+          alias-domains: |
+            pr-${{ github.event.pull_request.number }}.nextdev-preview.com
+
+      # Set output for preview URL
+      - name: Set preview URL
+        id: set-preview-url
+        run: |
+          # Handle both push and pull request events
+          if [ -n "${{ steps.vercel-deployment.outputs.preview-url }}" ]; then
+            echo "preview-url=${{ steps.vercel-deployment.outputs.preview-url }}" >> $GITHUB_OUTPUT
+          else
+            # Fallback to production URL if preview URL is not available
+            echo "preview-url=https://next-dev-pi.vercel.app" >> $GITHUB_OUTPUT
+          fi
+          echo "Set preview URL to: $(cat $GITHUB_OUTPUT | grep preview-url | cut -d'=' -f2)"
+
+      # Comment on PR with preview URL - only for pull request events
+      - name: Find Comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/find-comment@v2
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: Preview deployment
+
+      - name: Create or Update Comment
+        if: github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ## Preview deployment
+            :rocket: Deployed to: ${{ steps.set-preview-url.outputs.preview-url }}
+            :clock2: Deployed at: `${{ github.event.pull_request.updated_at }}`
+          edit-mode: replace
+
+  # Production deployment - runs automatically on pushes to master
+  deploy-production:
+    name: Deploy to Production
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment: production
+    # Add specific permissions for this job
+    permissions:
+      deployments: write
+      statuses: write
+    outputs:
+      production-url: ${{ steps.vercel-deployment.outputs.preview-url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download build artifact (tarball)
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          # No path specified, downloads to current directory
+
+      - name: Extract build artifact
+        run: tar -xzf build-output.tar.gz # Extracts .next directory
+
+      # Step 1: Deploy to staging slot (blue environment)
+      - name: Deploy to Blue Environment
+        id: blue-deployment
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Deploy without production flag first
+          vercel-args: ''
+
+      # Step 2: Wait for deployment to be ready
+      - name: Wait for blue deployment to be ready
+        run: |
+          echo "Waiting for blue deployment to be ready..."
+          sleep 30
+
+      # Step 3: Run health checks on blue environment
+      - name: Run health checks
+        id: health-check
+        run: |
+          BLUE_URL="${{ steps.blue-deployment.outputs.preview-url }}"
+          echo "Running health checks on $BLUE_URL"
+
+          # Check if the site is accessible
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BLUE_URL)
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "::set-output name=status::success"
+            echo "Health checks passed!"
+          else
+            echo "::set-output name=status::failure"
+            echo "Health checks failed! Site returned HTTP $HTTP_STATUS"
+            exit 1
+          fi
+
+      # Step 4: Promote to production (green environment) if health checks pass
+      - name: Promote to production
+        if: steps.health-check.outputs.status == 'success'
+        run: |
+          BLUE_URL="${{ steps.blue-deployment.outputs.preview-url }}"
+          PROD_ALIAS="next-dev-pi.vercel.app"
+
+          echo "Promoting $BLUE_URL to production as $PROD_ALIAS"
+
+          # Use retry mechanism for alias assignment
+          MAX_RETRIES=5
+          RETRY_DELAY=15
+
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            echo "Attempt $i of $MAX_RETRIES"
+            if npx vercel@latest -t ${{ secrets.VERCEL_TOKEN }} alias $BLUE_URL $PROD_ALIAS; then
+              echo "Successfully promoted deployment to production!"
+              break
+            else
+              if [ $i -lt $MAX_RETRIES ]; then
+                echo "Promotion failed. Waiting for $RETRY_DELAY seconds before retry..."
+                sleep $RETRY_DELAY
+              else
+                echo "Failed to promote after $MAX_RETRIES attempts. Manual intervention required."
+                exit 1
+              fi
+            fi
+          done
+
+      # Step 5: Notify about deployment status
+      - name: Send deployment notification
+        if: always()
+        run: |
+          if [ "${{ steps.health-check.outputs.status }}" == "success" ]; then
+            echo "✅ Production deployment successful! Site is live at https://next-dev-pi.vercel.app"
+          else
+            echo "❌ Production deployment failed! Manual intervention required."
+          fi
+
+      # Set deployment URL output
+      - name: Set Deployment URL
+        id: set-deployment-url
+        if: steps.health-check.outputs.status == 'success'
+        run: |
+          # Always use the production alias URL
+          DEPLOY_URL="https://next-dev-pi.vercel.app"
+          echo "production-url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+
+          # Store deployment info for future reference
+          echo "${{ github.sha }},$DEPLOY_URL,$(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> deployments.csv
+
+      # Create GitHub deployment status
+      - name: Create GitHub Deployment Status
+        if: steps.health-check.outputs.status == 'success'
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          state: "success"
+          deployment-id: ${{ github.run_id }}
+          environment-url: "https://next-dev-pi.vercel.app"
+          description: "Deployment successful"
+
+      # Add automated rollback capability
+      - name: Setup rollback capability
+        if: steps.health-check.outputs.status == 'success'
+        run: |
+          # Store the current deployment URL for potential rollback
+          BLUE_URL="${{ steps.blue-deployment.outputs.preview-url }}"
+          echo "$BLUE_URL" > .vercel-latest-deployment
+
+          # Upload the file as an artifact for future rollback workflows
+          echo "Latest deployment URL: $BLUE_URL"
+
+      - name: Upload deployment info for rollback
+        if: steps.health-check.outputs.status == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-info
+          path: |
+            .vercel-latest-deployment
+            deployments.csv
+
+  # Cache invalidation - runs when dependencies change
+  cache-invalidation:
+    name: Invalidate Cache
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    # Add specific permissions for this job
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for package changes
+        id: check-changes
+        run: |
+          git diff --name-only HEAD^ HEAD > changed_files.txt
+          if grep -q "package.json\|package-lock.json" changed_files.txt; then
+            echo "dependencies_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "dependencies_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify about dependency changes
+        if: steps.check-changes.outputs.dependencies_changed == 'true'
+        run: |
+          echo "Dependencies have changed. Triggering cache invalidation."
+          # Add your cache invalidation logic here
+
+      - name: Clear GitHub Actions cache
+        if: steps.check-changes.outputs.dependencies_changed == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            console.log('Clearing cache for this workflow...')
+            const caches = await github.rest.actions.getActionsCacheList({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            })
+            if (caches.data.actions_caches.length > 0) {
+              console.log(`Found ${caches.data.actions_caches.length} caches to clear`)
+              for (const cache of caches.data.actions_caches) {
+                console.log(`Deleting cache with ID: ${cache.id}, key: ${cache.key}`)
+                await github.rest.actions.deleteActionsCacheById({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  cache_id: cache.id
+                })
+              }
+            } else {
+              console.log('No caches found to clear')
+            }
