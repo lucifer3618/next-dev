@@ -284,7 +284,7 @@ jobs:
           github-token: ${{ secrets.GH_PAT }}
           github-comment: true
           working-directory: ./
-          env-file: .env.development
+          vercel-args: '--env NEXT_PUBLIC_GOOGLE_AUTH_KEY="615788238668-itemrc5tekosnnheknkd9h5qdgdbebpf.apps.googleusercontent.com" --env NEXT_PUBLIC_CONVEX_URL="${{ secrets.NEXT_PUBLIC_CONVEX_URL }}" --env NEXT_PUBLIC_GEMINI_API_KEY="${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}"'
 
       - name: Wait for deployment to be ready
         run: |
@@ -381,9 +381,7 @@ jobs:
           github-token: ${{ secrets.GH_PAT }}
           github-comment: true
           working-directory: ./
-          env-file: .env.production
-          alias-domains: |
-          vercel-args: '--prod'
+          vercel-args: '--prod --env NEXT_PUBLIC_GOOGLE_AUTH_KEY="615788238668-itemrc5tekosnnheknkd9h5qdgdbebpf.apps.googleusercontent.com" --env NEXT_PUBLIC_CONVEX_URL="${{ secrets.NEXT_PUBLIC_CONVEX_URL }}" --env NEXT_PUBLIC_GEMINI_API_KEY="${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}"'
 
       - name: Wait for deployment to be ready
         run: |
