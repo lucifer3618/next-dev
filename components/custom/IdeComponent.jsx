@@ -84,6 +84,7 @@ function IdeComponent() {
             const mergedFiles = { ...Lookup.DEFAULT_FILE, ...aiResponse.files };
             setFiles(mergedFiles);
             console.log(aiResponse);
+            console.log(aiResponse.files);
             await UpdateFiles({
                 workspaceId: id,
                 files: aiResponse.files,

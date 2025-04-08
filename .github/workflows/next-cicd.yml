@@ -117,9 +117,9 @@ jobs:
       - name: Build application
         id: build-app
         env:
-          NEXT_PUBLIC_CONVEX_URL: "https://aware-hummingbird-507.convex.cloud"
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
-          NEXT_PUBLIC_GOOGLE_AUTH_KEY: "615788238668-itemrc5tekosnnheknkd9h5qdgdbebpf.apps.googleusercontent.com"
+          NEXT_PUBLIC_GOOGLE_AUTH_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
         run: |
           set +e
           npm run build
@@ -274,9 +274,9 @@ jobs:
         id: preview-deployment
         uses: amondnet/vercel-action@v25
         env:
-          NEXT_PUBLIC_CONVEX_URL: "https://aware-hummingbird-507.convex.cloud"
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
-          NEXT_PUBLIC_GOOGLE_AUTH_KEY: "615788238668-itemrc5tekosnnheknkd9h5qdgdbebpf.apps.googleusercontent.com"
+          NEXT_PUBLIC_GOOGLE_AUTH_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
@@ -284,7 +284,7 @@ jobs:
           github-token: ${{ secrets.GH_PAT }}
           github-comment: true
           working-directory: ./
-          vercel-args: '--env NEXT_PUBLIC_GOOGLE_AUTH_KEY="615788238668-itemrc5tekosnnheknkd9h5qdgdbebpf.apps.googleusercontent.com" --env NEXT_PUBLIC_CONVEX_URL="https://aware-hummingbird-507.convex.cloud" --env NEXT_PUBLIC_GEMINI_API_KEY="${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}"'
+          vercel-args: '--env NEXT_PUBLIC_GOOGLE_AUTH_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}" --env NEXT_PUBLIC_CONVEX_URL="${{ secrets.NEXT_PUBLIC_CONVEX_URL }}" --env NEXT_PUBLIC_GEMINI_API_KEY="${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}"'
 
       - name: Wait for deployment to be ready
         run: |
@@ -371,9 +371,9 @@ jobs:
         id: prod-deployment
         uses: amondnet/vercel-action@v25
         env:
-          NEXT_PUBLIC_CONVEX_URL: "https://aware-hummingbird-507.convex.cloud"
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
-          NEXT_PUBLIC_GOOGLE_AUTH_KEY: "615788238668-itemrc5tekosnnheknkd9h5qdgdbebpf.apps.googleusercontent.com"
+          NEXT_PUBLIC_GOOGLE_AUTH_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
@@ -381,7 +381,7 @@ jobs:
           github-token: ${{ secrets.GH_PAT }}
           github-comment: true
           working-directory: ./
-          vercel-args: '--prod --env NEXT_PUBLIC_GOOGLE_AUTH_KEY="615788238668-itemrc5tekosnnheknkd9h5qdgdbebpf.apps.googleusercontent.com" --env NEXT_PUBLIC_CONVEX_URL="https://aware-hummingbird-507.convex.cloud" --env NEXT_PUBLIC_GEMINI_API_KEY="${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}"'
+          vercel-args: '--prod --env NEXT_PUBLIC_GOOGLE_AUTH_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}" --env NEXT_PUBLIC_CONVEX_URL="${{ secrets.NEXT_PUBLIC_CONVEX_URL }}" --env NEXT_PUBLIC_GEMINI_API_KEY="${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}"'
 
       - name: Wait for deployment to be ready
         run: |

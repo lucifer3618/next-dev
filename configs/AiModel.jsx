@@ -6,7 +6,11 @@ const {
 const fs = require("node:fs");
 const mime = require("mime-types");
 
+// Get the API key from environment variables
 const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+console.log(apiKey);
+
+console.log("Using Gemini API Key:", apiKey ? "Key is set" : "Key is missing");
 const genAI = new GoogleGenerativeAI(apiKey);
 
 const model = genAI.getGenerativeModel({

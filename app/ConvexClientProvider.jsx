@@ -2,7 +2,6 @@
 
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { useState, useEffect } from "react";
-import { CONVEX_URL } from "./env-config";
 
 // Initialize the client on the client side only
 export function ConvexClientProvider({ children }) {
@@ -13,33 +12,7 @@ export function ConvexClientProvider({ children }) {
     useEffect(() => {
         // Only initialize the client in the browser
         try {
-            // Try multiple sources for the Convex URL
-            const getConvexUrl = () => {
-                // First try our imported value from env-config
-                if (CONVEX_URL) {
-                    return CONVEX_URL;
-                }
-
-                // Then try process.env
-                if (process.env.NEXT_PUBLIC_CONVEX_URL) {
-                    return process.env.NEXT_PUBLIC_CONVEX_URL;
-                }
-
-                // Then try window.ENV
-                if (typeof window !== 'undefined' && window.ENV?.NEXT_PUBLIC_CONVEX_URL) {
-                    return window.ENV.NEXT_PUBLIC_CONVEX_URL;
-                }
-
-                // Then try window.ENV_CONVEX_URL
-                if (typeof window !== 'undefined' && window.ENV_CONVEX_URL) {
-                    return window.ENV_CONVEX_URL;
-                }
-
-                // Hardcoded fallback as last resort
-                return "https://aware-hummingbird-507.convex.cloud";
-            };
-
-            const convexUrl = getConvexUrl();
+            const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
             console.log("Initializing Convex client with URL:", convexUrl);
 
             if (!convexUrl) {
