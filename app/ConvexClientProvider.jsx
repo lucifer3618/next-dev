@@ -3,9 +3,6 @@
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { useState, useEffect } from "react";
 
-// Default Convex URL as a fallback
-const DEFAULT_CONVEX_URL = "https://eager-giraffe-846.convex.cloud";
-
 // Initialize the client on the client side only
 export function ConvexClientProvider({ children }) {
     const [convexClient, setConvexClient] = useState(null);
@@ -15,7 +12,7 @@ export function ConvexClientProvider({ children }) {
     useEffect(() => {
         // Only initialize the client in the browser
         try {
-            const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL || DEFAULT_CONVEX_URL;
+            const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
             console.log("Initializing Convex client with URL:", convexUrl);
 
             if (!convexUrl) {
