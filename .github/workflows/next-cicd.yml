@@ -119,6 +119,7 @@ jobs:
         env:
           NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
           NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_AUTH_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
         run: |
           set +e
           npm run build

@@ -7,6 +7,7 @@ import { UserContext } from "@/context/UserContext"
 import { GoogleOAuthProvider } from "@react-oauth/google"
 import { useConvex } from "convex/react"
 import { api } from "@/convex/_generated/api"
+import { GOOGLE_AUTH_KEY } from "./env-config"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -44,8 +45,11 @@ export function ThemeProvider({ children, }) {
         }
     }
 
+    // Log the Google Auth Key for debugging
+    console.log("Using Google Auth Key from env-config:", GOOGLE_AUTH_KEY ? "Key is set" : "Key is missing");
+
     return (
-        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_AUTH_KEY}>
+        <GoogleOAuthProvider clientId={GOOGLE_AUTH_KEY}>
             <UserContext.Provider value={{ userData, setUserData }}>
                 <MessagesContext.Provider value={{ messages, setMessages }}>
                     <ActionContext.Provider value={{ action, setAction }}>
