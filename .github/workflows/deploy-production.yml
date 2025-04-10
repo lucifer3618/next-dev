@@ -1,0 +1,194 @@
+name: Production Deployment
+
+on:
+  workflow_call:
+    inputs:
+      build_success:
+        required: true
+        type: string
+        description: "Whether the build was successful"
+    outputs:
+      deployment_url:
+        description: "The URL of the production deployment"
+        value: ${{ jobs.deploy-production.outputs.deployment-url }}
+
+jobs:
+  # Deploy to production environment
+  deploy-production:
+    name: Deploy to Production
+    if: inputs.build_success == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      deployment-url: ${{ steps.prod-deployment.outputs.preview-url }}
+    permissions:
+      contents: write
+      deployments: write
+      statuses: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+
+      - name: Extract build artifact
+        run: tar -xzf build-output.tar.gz
+
+      - name: Deploy to Vercel (Production)
+        id: prod-deployment
+        uses: amondnet/vercel-action@v25
+        env:
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+          NEXT_PUBLIC_GEMINI_API_KEY: ${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_AUTH_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          github-token: ${{ secrets.GH_PAT }}
+          github-comment: true
+          working-directory: ./
+          vercel-args: '--prod --env NEXT_PUBLIC_GOOGLE_AUTH_KEY="${{ secrets.NEXT_PUBLIC_GOOGLE_AUTH_KEY }}" --env NEXT_PUBLIC_CONVEX_URL="${{ secrets.NEXT_PUBLIC_CONVEX_URL }}" --env NEXT_PUBLIC_GEMINI_API_KEY="${{ secrets.NEXT_PUBLIC_GEMINI_API_KEY }}"'
+
+      - name: Wait for deployment to be ready
+        run: |
+          echo "Waiting for deployment to be ready..."
+          sleep 30
+
+      - name: Health check
+        id: health-check
+        run: |
+          DEPLOY_URL="${{ steps.prod-deployment.outputs.preview-url }}"
+          echo "Checking health of $DEPLOY_URL"
+
+          MAX_RETRIES=5
+          RETRY_DELAY=10
+
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            echo "Health check attempt $i of $MAX_RETRIES"
+            # Use verbose curl to get more information
+            RESPONSE=$(curl -v -L -s -w "\n%{http_code}" "$DEPLOY_URL")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            CONTENT=$(echo "$RESPONSE" | sed '$d')
+
+            echo "HTTP Status Code: $HTTP_CODE"
+
+            # Check if we got a successful response
+            if [[ "$HTTP_CODE" -ge 200 && "$HTTP_CODE" -lt 400 ]]; then
+              echo "Health check successful with status $HTTP_CODE"
+              echo "status=success" >> $GITHUB_OUTPUT
+
+              # Save a snippet of the response for debugging
+              echo "Response preview:"
+              echo "${CONTENT:0:500}..."
+              break
+            else
+              if [ $i -lt $MAX_RETRIES ]; then
+                echo "Health check failed with status $HTTP_CODE. Waiting for $RETRY_DELAY seconds before retry..."
+                sleep $RETRY_DELAY
+              else
+                echo "Health check failed after $MAX_RETRIES attempts. Last status: $HTTP_CODE"
+                echo "status=failure" >> $GITHUB_OUTPUT
+              fi
+            fi
+          done
+
+      - name: Create GitHub Deployment Status
+        if: steps.health-check.outputs.status == 'success'
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ secrets.GH_PAT }}
+          state: "success"
+          deployment-id: ${{ github.run_id }}
+          environment-url: ${{ steps.prod-deployment.outputs.preview-url }}
+          description: "Production deployment successful"
+
+      - name: Store deployment URL for rollback
+        if: steps.health-check.outputs.status == 'success'
+        run: |
+          DEPLOY_URL="${{ steps.prod-deployment.outputs.preview-url }}"
+          echo "$DEPLOY_URL" > .vercel-latest-production-deployment
+          echo "Latest production deployment URL: $DEPLOY_URL"
+
+      - name: Upload deployment URL artifact
+        if: steps.health-check.outputs.status == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-deployment-url
+          path: .vercel-latest-production-deployment
+          retention-days: 30
+          if-no-files-found: warn
+
+  # Synthetic monitoring for production deployment
+  synthetic-monitoring-production:
+    name: Synthetic Monitoring (Production)
+    needs: [deploy-production]
+    if: always() && needs.deploy-production.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download deployment URL artifact
+        id: download-artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-deployment-url
+          path: ./deployment-info
+        continue-on-error: true
+
+      - name: Set deployment URL from artifact
+        id: check-artifact
+        run: |
+          if [ -f "./deployment-info/.vercel-latest-production-deployment" ]; then
+            DEPLOY_URL=$(cat ./deployment-info/.vercel-latest-production-deployment)
+            echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
+            echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+            echo "Found production deployment URL from artifact: $DEPLOY_URL"
+            echo "source=artifact" >> $GITHUB_OUTPUT
+          else
+            echo "Production deployment URL artifact not found. Will try job output instead."
+            echo "source=none" >> $GITHUB_OUTPUT
+          fi
+
+      # Fallback to job output if artifact is not available
+      - name: Set deployment URL from job output
+        id: set-url-from-output
+        if: steps.check-artifact.outputs.source == 'none'
+        run: |
+          DEPLOY_URL="${{ needs.deploy-production.outputs.deployment-url }}"
+          if [ -n "$DEPLOY_URL" ]; then
+            echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
+            echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+            echo "Found deployment URL from job output: $DEPLOY_URL"
+            echo "source=output" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::No production deployment URL found from artifact or job output. Cannot run synthetic monitoring."
+            exit 1
+          fi
+
+      - name: Install k6
+        run: |
+          curl -L https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz -o k6.tar.gz
+          tar -xzf k6.tar.gz
+          sudo cp k6-v0.47.0-linux-amd64/k6 /usr/local/bin
+
+      - name: Run synthetic monitoring tests
+        run: |
+          echo "Running synthetic monitoring tests against $DEPLOYMENT_URL"
+          k6 run -e BASE_URL=$DEPLOYMENT_URL synthetic-monitoring/k6-monitoring/all-checks.js
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-monitoring-production-results
+          path: summary.json
+          retention-days: 14
+
+      - name: Notify on test failures
+        if: failure()
+        run: |
+          echo "::error::Synthetic monitoring tests failed for production deployment at ${{ steps.check-artifact.outputs.url }}"

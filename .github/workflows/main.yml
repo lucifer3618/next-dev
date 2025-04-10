@@ -1,0 +1,59 @@
+name: Next.js CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  workflow_dispatch:
+    inputs:
+      deploy_to_production:
+        description: 'Deploy to production'
+        type: boolean
+        default: false
+        required: true
+
+# Add global permissions for GitHub token
+permissions:
+  contents: write
+  pull-requests: write
+  deployments: write
+  issues: write
+  statuses: write
+  security-events: write
+
+jobs:
+  # Trigger quality checks workflow
+  quality-checks:
+    name: Quality Checks
+    uses: ./.github/workflows/quality-checks.yml
+    secrets: inherit
+
+  # Trigger build workflow if quality checks pass
+  build:
+    name: Build Process
+    needs: [quality-checks]
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  # Trigger preview deployment for develop branch
+  deploy-preview:
+    name: Preview Deployment
+    needs: [build]
+    if: github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/deploy-preview.yml
+    with:
+      build_success: ${{ needs.build.outputs.build_success }}
+    secrets: inherit
+
+  # Trigger production deployment for main/master branch or manual trigger
+  deploy-production:
+    name: Production Deployment
+    needs: [build]
+    if: |
+      ((github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'master')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_production == 'true'))
+    uses: ./.github/workflows/deploy-production.yml
+    with:
+      build_success: ${{ needs.build.outputs.build_success }}
+    secrets: inherit

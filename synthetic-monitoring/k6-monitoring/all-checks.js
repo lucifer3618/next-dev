@@ -7,6 +7,7 @@ import homeCheck from './home-page-check.js';
 import authCheck from './auth-check.js';
 import apiCheck from './api-check.js';
 import workspaceCheck from './workspace-check.js';
+import workflowHealthCheck from './workflow-health-check.js';
 
 // Custom metrics to track overall performance and reliability
 export const failureRate = new Rate('overall_check_failure_rate');
@@ -107,6 +108,25 @@ export default function() {
       // Continue with other checks even if this one fails
     }
   });
+
+  // Run workflow health checks if tokens are provided
+  if (__ENV.GITHUB_TOKEN || __ENV.VERCEL_TOKEN) {
+    group('Workflow Health Checks', () => {
+      try {
+        console.log('\n--- Starting Workflow Health Checks ---');
+        workflowHealthCheck();
+        console.log('--- Completed Workflow Health Checks ---\n');
+      } catch (error) {
+        console.error('Error in Workflow Health Checks:', error);
+        failureRate.add(1); // Record failure
+        // Continue with other checks even if this one fails
+      }
+    });
+
+    sleep(1);
+  } else {
+    console.log('\n--- Skipping Workflow Health Checks (no tokens provided) ---\n');
+  }
 
   // Final health check to ensure the application is still responsive
   const finalHealthCheck = http.get(`${baseUrl}`, {
