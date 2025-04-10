@@ -28,7 +28,7 @@ The pipeline uses multiple security scanning tools to ensure comprehensive cover
 - **Configuration**: Uses the security-and-quality query suite for JavaScript/TypeScript
 - **Quality Gates**:
   - Critical security issues will cause the pipeline to fail
-  - Results are uploaded as SARIF files for GitHub Security dashboard
+  - Results are uploaded as SARIF files for GitHub Security dashboard with a unique category
 
 ## Quality Gates Implementation
 
