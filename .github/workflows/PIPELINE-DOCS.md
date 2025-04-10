@@ -4,16 +4,13 @@ This document describes the improved Continuous Integration and Continuous Deplo
 
 ## Pipeline Overview
 
-The CI/CD pipeline is now implemented as a set of modular workflow files that work together, providing better expandability while maintaining the same functionality.
+The CI/CD pipeline is implemented in a consolidated workflow file that handles all aspects of the development lifecycle, with additional workflows for monitoring and rollback capabilities.
 
 ### Workflow Files
 
-1. **main.yml** - Main orchestrator that triggers all other workflows
-2. **quality-checks.yml** - Handles code quality and security checks
-3. **build.yml** - Manages the build process and performance testing
-4. **deploy-preview.yml** - Handles preview deployments and monitoring
-5. **deploy-production.yml** - Handles production deployments and monitoring
-6. **rollback.yml** - Provides rollback capability for deployments
+1. **next-cicd.yml** - Main workflow that handles all aspects of the CI/CD pipeline
+2. **workflow-monitoring.yml** - Monitors the health of workflows and deployed applications
+3. **rollback.yml** - Provides rollback capability for deployments
 
 ### Triggers
 
@@ -97,6 +94,15 @@ Following project preferences:
 - Uses Jest for all test cases
 - Focuses testing on custom components only (skips /pages directory)
 - Ensures no skipped tests in the test suites
+
+## Benefits of Consolidated Structure
+
+This consolidated approach provides several benefits:
+
+1. **Simplicity** - All CI/CD steps are defined in a single file, making it easier to understand the entire process
+2. **Reliability** - No dependencies between separate workflow files that could cause reference issues
+3. **Consistency** - All jobs use the same environment and configuration
+4. **Clarity** - The pipeline flow is clearly defined in a single file
 
 ## Performance Considerations
 

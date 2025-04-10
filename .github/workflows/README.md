@@ -2,16 +2,13 @@
 
 This document describes the Continuous Integration and Continuous Deployment (CI/CD) pipeline for the Next-Dev project.
 
-## Modular Workflow Structure
+## Workflow Structure
 
-The CI/CD pipeline is implemented as a set of modular workflow files that work together:
+The CI/CD pipeline is implemented in these workflow files:
 
-1. **main.yml** - Main orchestrator that triggers all other workflows
-2. **quality-checks.yml** - Handles code quality and security checks
-3. **build.yml** - Manages the build process and performance testing
-4. **deploy-preview.yml** - Handles preview deployments and monitoring
-5. **deploy-production.yml** - Handles production deployments and monitoring
-6. **rollback.yml** - Provides rollback capability for deployments
+1. **next-cicd.yml** - Main workflow that handles all aspects of the CI/CD pipeline
+2. **workflow-monitoring.yml** - Monitors the health of workflows and deployed applications
+3. **rollback.yml** - Provides rollback capability for deployments
 
 ### Triggers
 
