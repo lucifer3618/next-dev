@@ -151,23 +151,17 @@ jobs:
           npm run build
         continue-on-error: true
 
+      # This step automatically uploads results to GitHub Security
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:javascript"
-          output: sarif-results
 
-      - name: Upload SARIF results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: sarif-results
-          category: "/language:javascript-upload"
-
+      # Check for critical issues in the CodeQL database directly
       - name: Check for critical vulnerabilities
         id: check-critical
         run: |
           set +e
-          critical_count=$(cat sarif-results/*.sarif | grep -o '"level":"error"' | wc -l || echo 0)
+          # Look for critical issues in the CodeQL database
+          critical_count=$(grep -r "level\":\"error\"" $(find /home/runner/work/_temp -name "*.sarif" -type f) | wc -l || echo 0)
           set -e
 
           echo "Found $critical_count critical security issues"
