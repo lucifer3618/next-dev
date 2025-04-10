@@ -10,7 +10,8 @@
     "release": "standard-version",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "prepare": "husky"
   },
   "dependencies": {
     "@codesandbox/sandpack-react": "^2.20.0",

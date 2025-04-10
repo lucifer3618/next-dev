@@ -20,6 +20,7 @@ permissions:
   deployments: write
   issues: write
   statuses: write
+  security-events: write
 
 jobs:
   # Lint and Test job - runs for all events
@@ -66,6 +67,9 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    outputs:
+      high-severity-vulnerabilities: ${{ steps.npm-audit.outputs.high_severity_count }}
+      critical-severity-vulnerabilities: ${{ steps.npm-audit.outputs.critical_severity_count }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -80,8 +84,31 @@ jobs:
         run: npm ci
 
       - name: Run npm audit
-        run: npm audit --production
-        continue-on-error: true
+        id: npm-audit
+        run: |
+          set +e
+          npm_audit_output=$(npm audit --json || true)
+          set -e
+
+          # Count high and critical severity vulnerabilities
+          high_count=$(echo "$npm_audit_output" | grep -o '"severity":"high"' | wc -l || echo 0)
+          critical_count=$(echo "$npm_audit_output" | grep -o '"severity":"critical"' | wc -l || echo 0)
+
+          echo "Found $high_count high severity and $critical_count critical severity vulnerabilities"
+
+          # Set outputs for use in quality gates
+          echo "high_severity_count=$high_count" >> $GITHUB_OUTPUT
+          echo "critical_severity_count=$critical_count" >> $GITHUB_OUTPUT
+
+          # Fail the job if there are critical vulnerabilities
+          if [ "$critical_count" -gt 0 ]; then
+            echo "Critical vulnerabilities found. Failing the job."
+            npm audit
+            exit 1
+          fi
+
+          # Show the audit results
+          npm audit
 
       - name: Run Snyk scan
         uses: snyk/actions/node@master
@@ -91,10 +118,68 @@ jobs:
         with:
           args: --severity-threshold=high
 
+  # CodeQL Analysis job
+  codeql-analysis:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, typescript
+          queries: security-and-quality
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for CodeQL Analysis
+        run: |
+          # Build the code for analysis
+          npm run build
+        continue-on-error: true
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+          output: sarif-results
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sarif-results
+
+      - name: Check for critical vulnerabilities
+        id: check-critical
+        run: |
+          set +e
+          critical_count=$(cat sarif-results/*.sarif | grep -o '"level":"error"' | wc -l || echo 0)
+          set -e
+
+          echo "Found $critical_count critical security issues"
+
+          if [ "$critical_count" -gt 0 ]; then
+            echo "Critical security issues found. Failing the job."
+            exit 1
+          fi
+
   # Build job
   build:
     name: Build Application
-    needs: [lint-and-test, security-scan]
+    needs: [lint-and-test, security-scan, codeql-analysis]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -155,6 +240,18 @@ jobs:
           else
             echo "success=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Security Scan Summary
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Dependency Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "- High Severity: ${{ needs.security-scan.outputs.high-severity-vulnerabilities }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical Severity: ${{ needs.security-scan.outputs.critical-severity-vulnerabilities }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### CodeQL Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- Static Analysis completed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "- No critical security issues found" >> $GITHUB_STEP_SUMMARY
 
   # Performance testing job
   performance-test:
