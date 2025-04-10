@@ -85,12 +85,11 @@ function IdeComponent() {
             setFiles(mergedFiles);
             console.log(aiResponse);
             console.log(aiResponse.files);
-            if (aiResponse.files.length > 0) {
-                await UpdateFiles({
-                    workspaceId: id,
-                    files: aiResponse.files,
-                });
-            }
+            await UpdateFiles({
+                workspaceId: id,
+                files: aiResponse.files,
+            });
+
 
             const usedTokens = countTokens(JSON.stringify(aiResponse));
             console.log(`LEN CODE: ${usedTokens}`);
