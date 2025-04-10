@@ -433,6 +433,52 @@ jobs:
           path: .vercel-latest-deployment
           retention-days: 30
 
+  # Synthetic monitoring for preview deployment
+  synthetic-monitoring-preview:
+    name: Synthetic Monitoring (Preview)
+    needs: [deploy-preview]
+    if: always() && needs.deploy-preview.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download deployment URL artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-url
+
+      - name: Set deployment URL
+        id: deployment-url
+        run: |
+          DEPLOY_URL=$(cat .vercel-latest-deployment)
+          echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
+          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+
+      - name: Install k6
+        run: |
+          curl -L https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz -o k6.tar.gz
+          tar -xzf k6.tar.gz
+          sudo cp k6-v0.47.0-linux-amd64/k6 /usr/local/bin
+
+      - name: Run synthetic monitoring tests
+        run: |
+          echo "Running synthetic monitoring tests against $DEPLOYMENT_URL"
+          k6 run -e BASE_URL=$DEPLOYMENT_URL synthetic-monitoring/k6-monitoring/all-checks.js
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-monitoring-preview-results
+          path: summary.json
+          retention-days: 14
+
+      - name: Notify on test failures
+        if: failure()
+        run: |
+          echo "::warning::Synthetic monitoring tests failed for preview deployment at ${{ steps.deployment-url.outputs.url }}"
+
   # Deploy to production environment
   deploy-production:
     name: Deploy to Production
@@ -529,3 +575,50 @@ jobs:
           name: production-deployment-url
           path: .vercel-latest-production-deployment
           retention-days: 30
+
+  # Synthetic monitoring for production deployment
+  synthetic-monitoring-production:
+    name: Synthetic Monitoring (Production)
+    needs: [deploy-production]
+    if: always() && needs.deploy-production.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download deployment URL artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-deployment-url
+
+      - name: Set deployment URL
+        id: deployment-url
+        run: |
+          DEPLOY_URL=$(cat .vercel-latest-production-deployment)
+          echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
+          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+
+      - name: Install k6
+        run: |
+          curl -L https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz -o k6.tar.gz
+          tar -xzf k6.tar.gz
+          sudo cp k6-v0.47.0-linux-amd64/k6 /usr/local/bin
+
+      - name: Run synthetic monitoring tests
+        run: |
+          echo "Running synthetic monitoring tests against $DEPLOYMENT_URL"
+          k6 run -e BASE_URL=$DEPLOYMENT_URL synthetic-monitoring/k6-monitoring/all-checks.js
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-monitoring-production-results
+          path: summary.json
+          retention-days: 14
+
+      - name: Notify on test failures
+        if: failure()
+        run: |
+          echo "::error::Synthetic monitoring tests failed for production deployment at ${{ steps.deployment-url.outputs.url }}"
+          # In a real scenario, you might want to send notifications via email, Slack, etc.
