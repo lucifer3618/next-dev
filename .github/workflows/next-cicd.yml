@@ -345,6 +345,8 @@ jobs:
       needs.build.outputs.build-success == 'true' &&
       github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    outputs:
+      deployment-url: ${{ steps.preview-deployment.outputs.preview-url }}
 
     permissions:
       contents: write
@@ -432,6 +434,7 @@ jobs:
           name: deployment-url
           path: .vercel-latest-deployment
           retention-days: 30
+          if-no-files-found: warn
 
   # Synthetic monitoring for preview deployment
   synthetic-monitoring-preview:
@@ -444,16 +447,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download deployment URL artifact
+        id: download-artifact
         uses: actions/download-artifact@v4
         with:
           name: deployment-url
 
       - name: Set deployment URL
-        id: deployment-url
+        id: check-artifact
         run: |
-          DEPLOY_URL=$(cat .vercel-latest-deployment)
-          echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
-          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          if [ -f ".vercel-latest-deployment" ]; then
+            DEPLOY_URL=$(cat .vercel-latest-deployment)
+            echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
+            echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Deployment URL artifact not found. Cannot run synthetic monitoring."
+            exit 1
+          fi
 
       - name: Install k6
         run: |
@@ -477,7 +486,7 @@ jobs:
       - name: Notify on test failures
         if: failure()
         run: |
-          echo "::warning::Synthetic monitoring tests failed for preview deployment at ${{ steps.deployment-url.outputs.url }}"
+          echo "::warning::Synthetic monitoring tests failed for preview deployment at ${{ steps.check-artifact.outputs.url }}"
 
   # Deploy to production environment
   deploy-production:
@@ -488,6 +497,8 @@ jobs:
       ((github.event_name == 'pull_request' && (github.base_ref == 'main' || github.base_ref == 'master')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_to_production == 'true'))
     runs-on: ubuntu-latest
+    outputs:
+      deployment-url: ${{ steps.prod-deployment.outputs.preview-url }}
 
     permissions:
       contents: write
@@ -575,6 +586,7 @@ jobs:
           name: production-deployment-url
           path: .vercel-latest-production-deployment
           retention-days: 30
+          if-no-files-found: warn
 
   # Synthetic monitoring for production deployment
   synthetic-monitoring-production:
@@ -587,16 +599,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download deployment URL artifact
+        id: download-artifact
         uses: actions/download-artifact@v4
         with:
           name: production-deployment-url
 
       - name: Set deployment URL
-        id: deployment-url
+        id: check-artifact
         run: |
-          DEPLOY_URL=$(cat .vercel-latest-production-deployment)
-          echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
-          echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          if [ -f ".vercel-latest-production-deployment" ]; then
+            DEPLOY_URL=$(cat .vercel-latest-production-deployment)
+            echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
+            echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Production deployment URL artifact not found. Cannot run synthetic monitoring."
+            exit 1
+          fi
 
       - name: Install k6
         run: |
@@ -620,5 +638,5 @@ jobs:
       - name: Notify on test failures
         if: failure()
         run: |
-          echo "::error::Synthetic monitoring tests failed for production deployment at ${{ steps.deployment-url.outputs.url }}"
+          echo "::error::Synthetic monitoring tests failed for production deployment at ${{ steps.check-artifact.outputs.url }}"
           # In a real scenario, you might want to send notifications via email, Slack, etc.
