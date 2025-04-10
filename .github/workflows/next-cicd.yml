@@ -451,16 +451,36 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: deployment-url
+          path: ./deployment-info
+        continue-on-error: true
 
-      - name: Set deployment URL
+      - name: Set deployment URL from artifact
         id: check-artifact
         run: |
-          if [ -f ".vercel-latest-deployment" ]; then
-            DEPLOY_URL=$(cat .vercel-latest-deployment)
+          if [ -f "./deployment-info/.vercel-latest-deployment" ]; then
+            DEPLOY_URL=$(cat ./deployment-info/.vercel-latest-deployment)
             echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
             echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+            echo "Found deployment URL from artifact: $DEPLOY_URL"
+            echo "source=artifact" >> $GITHUB_OUTPUT
           else
-            echo "::error::Deployment URL artifact not found. Cannot run synthetic monitoring."
+            echo "Deployment URL artifact not found. Will try job output instead."
+            echo "source=none" >> $GITHUB_OUTPUT
+          fi
+
+      # Fallback to job output if artifact is not available
+      - name: Set deployment URL from job output
+        id: set-url-from-output
+        if: steps.check-artifact.outputs.source == 'none'
+        run: |
+          DEPLOY_URL="${{ needs.deploy-preview.outputs.deployment-url }}"
+          if [ -n "$DEPLOY_URL" ]; then
+            echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
+            echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+            echo "Found deployment URL from job output: $DEPLOY_URL"
+            echo "source=output" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::No deployment URL found from artifact or job output. Cannot run synthetic monitoring."
             exit 1
           fi
 
@@ -603,16 +623,36 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: production-deployment-url
+          path: ./deployment-info
+        continue-on-error: true
 
-      - name: Set deployment URL
+      - name: Set deployment URL from artifact
         id: check-artifact
         run: |
-          if [ -f ".vercel-latest-production-deployment" ]; then
-            DEPLOY_URL=$(cat .vercel-latest-production-deployment)
+          if [ -f "./deployment-info/.vercel-latest-production-deployment" ]; then
+            DEPLOY_URL=$(cat ./deployment-info/.vercel-latest-production-deployment)
             echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
             echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+            echo "Found production deployment URL from artifact: $DEPLOY_URL"
+            echo "source=artifact" >> $GITHUB_OUTPUT
           else
-            echo "::error::Production deployment URL artifact not found. Cannot run synthetic monitoring."
+            echo "Production deployment URL artifact not found. Will try job output instead."
+            echo "source=none" >> $GITHUB_OUTPUT
+          fi
+
+      # Fallback to job output if artifact is not available
+      - name: Set deployment URL from job output
+        id: set-url-from-output
+        if: steps.check-artifact.outputs.source == 'none'
+        run: |
+          DEPLOY_URL="${{ needs.deploy-production.outputs.deployment-url }}"
+          if [ -n "$DEPLOY_URL" ]; then
+            echo "DEPLOYMENT_URL=$DEPLOY_URL" >> $GITHUB_ENV
+            echo "url=$DEPLOY_URL" >> $GITHUB_OUTPUT
+            echo "Found deployment URL from job output: $DEPLOY_URL"
+            echo "source=output" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::No production deployment URL found from artifact or job output. Cannot run synthetic monitoring."
             exit 1
           fi
 
