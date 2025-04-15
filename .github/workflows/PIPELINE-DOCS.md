@@ -4,7 +4,13 @@ This document describes the improved Continuous Integration and Continuous Deplo
 
 ## Pipeline Overview
 
-The CI/CD pipeline is implemented in a single workflow file (`next-cicd.yml`) that handles all aspects of the development lifecycle, following the project's preferences for consolidated workflows.
+The CI/CD pipeline is implemented in a consolidated workflow file that handles all aspects of the development lifecycle, with additional workflows for monitoring and rollback capabilities.
+
+### Workflow Files
+
+1. **next-cicd.yml** - Main workflow that handles all aspects of the CI/CD pipeline
+2. **workflow-monitoring.yml** - Monitors the health of workflows and deployed applications
+3. **rollback.yml** - Provides rollback capability for deployments
 
 ### Triggers
 
@@ -36,6 +42,8 @@ The pipeline consists of the following jobs:
 4. **Performance Testing**
    - Runs Lighthouse CI to test performance metrics
    - Provides insights on performance, accessibility, and best practices
+   - Uploads Lighthouse reports as artifacts for review
+   - Uses a custom configuration to prevent pipeline failures
    - Runs only if the build is successful
 
 5. **Deploy Preview**
@@ -86,6 +94,15 @@ Following project preferences:
 - Uses Jest for all test cases
 - Focuses testing on custom components only (skips /pages directory)
 - Ensures no skipped tests in the test suites
+
+## Benefits of Consolidated Structure
+
+This consolidated approach provides several benefits:
+
+1. **Simplicity** - All CI/CD steps are defined in a single file, making it easier to understand the entire process
+2. **Reliability** - No dependencies between separate workflow files that could cause reference issues
+3. **Consistency** - All jobs use the same environment and configuration
+4. **Clarity** - The pipeline flow is clearly defined in a single file
 
 ## Performance Considerations
 
