@@ -16,43 +16,61 @@ jobs:
     permissions:
       deployments: write
       contents: read
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      # Download the deployment info from the latest successful deployment
-      - name: Download deployment info
+
+      # Try to download the deployment info from the latest successful deployment
+      - name: Download production deployment info
+        id: download-prod
         uses: actions/download-artifact@v4
         with:
-          name: deployment-info
-          path: ./deployment-info
-      
+          name: production-deployment-url
+          path: ./deployment-info-prod
+        continue-on-error: true
+
+      # Fallback to preview deployment if production not found
+      - name: Download preview deployment info
+        id: download-preview
+        if: steps.download-prod.outcome != 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-url
+          path: ./deployment-info-preview
+        continue-on-error: true
+
       - name: Get previous deployment URL
         id: get-url
         run: |
-          if [ -f "./deployment-info/.vercel-latest-deployment" ]; then
-            PREVIOUS_URL=$(cat ./deployment-info/.vercel-latest-deployment)
+          # First try production deployment URL
+          if [ -f "./deployment-info-prod/.vercel-latest-production-deployment" ]; then
+            PREVIOUS_URL=$(cat ./deployment-info-prod/.vercel-latest-production-deployment)
             echo "previous_url=$PREVIOUS_URL" >> $GITHUB_OUTPUT
-            echo "Found previous deployment URL: $PREVIOUS_URL"
+            echo "Found previous production deployment URL: $PREVIOUS_URL"
+          # Then try preview deployment URL
+          elif [ -f "./deployment-info-preview/.vercel-latest-deployment" ]; then
+            PREVIOUS_URL=$(cat ./deployment-info-preview/.vercel-latest-deployment)
+            echo "previous_url=$PREVIOUS_URL" >> $GITHUB_OUTPUT
+            echo "Found previous preview deployment URL: $PREVIOUS_URL"
           else
             echo "No previous deployment URL found. Manual rollback required."
             exit 1
           fi
-      
+
       # Reassign the production alias to the previous deployment
       - name: Rollback to previous deployment
         if: steps.get-url.outputs.previous_url != ''
         run: |
           PREVIOUS_URL="${{ steps.get-url.outputs.previous_url }}"
           PROD_ALIAS="next-dev-pi.vercel.app"
-          
+
           echo "Rolling back production to $PREVIOUS_URL"
-          
+
           # Use retry mechanism for alias assignment
           MAX_RETRIES=5
           RETRY_DELAY=15
-          
+
           for ((i=1; i<=MAX_RETRIES; i++)); do
             echo "Attempt $i of $MAX_RETRIES"
             if npx vercel@latest -t ${{ secrets.VERCEL_TOKEN }} alias $PREVIOUS_URL $PROD_ALIAS; then
@@ -68,7 +86,7 @@ jobs:
               fi
             fi
           done
-      
+
       # Create GitHub deployment status for the rollback
       - name: Create Rollback Deployment Status
         if: steps.get-url.outputs.previous_url != ''
@@ -79,7 +97,7 @@ jobs:
           deployment-id: ${{ github.run_id }}
           environment-url: "https://next-dev-pi.vercel.app"
           description: "Rolled back to previous deployment. Reason: ${{ github.event.inputs.reason }}"
-      
+
       # Notify about rollback
       - name: Send rollback notification
         run: |
