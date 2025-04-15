@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.2](https://github.com/lucifer3618/next-dev/compare/v0.1.1...v0.1.2) (2025-04-15)
+
+
+### Features
+
+* add synthetic monitoring for preview and production deployments with detailed checks ([a252d7b](https://github.com/lucifer3618/next-dev/commit/a252d7b60f2f123198c51e4891e739ef4d1f61fb))
+* integrate CodeQL security scanning with quality gates ([9173a11](https://github.com/lucifer3618/next-dev/commit/9173a11cc7631858f3eaccd23043e963c08e81f2))
+
+
+### Bug Fixes
+
+* correct YAML formatting in CI/CD workflow ([5a15213](https://github.com/lucifer3618/next-dev/commit/5a15213bd3647cd0e88d9dc7fa7d1b7e06a84370))
+* enable blank issues in issue template configuration ([3027368](https://github.com/lucifer3618/next-dev/commit/3027368499d3c8897cdbf59d5f0c4c22f69886c6))
+* enhance synthetic monitoring by adding deployment URL handling and error checks ([f761c6c](https://github.com/lucifer3618/next-dev/commit/f761c6c777745f5b962dffe7f79667d3e8121ef8))
+* enhance synthetic monitoring with improved error handling and flexibility ([5a23488](https://github.com/lucifer3618/next-dev/commit/5a234880ee2fd71a06ab267387599de77772fed3))
+* improve rollback workflow by enhancing deployment info retrieval and adding fallback mechanisms ([4be6b4e](https://github.com/lucifer3618/next-dev/commit/4be6b4e3044c3bf9b0b2184e99b1414e5d4b46a8))
+* remove deprecated husky hook format ([8c42a83](https://github.com/lucifer3618/next-dev/commit/8c42a83a6f86df32fd0e184e0c3653f632e8b9f0))
+* remove outdated CI/CD workflow for Next.js ([8de975e](https://github.com/lucifer3618/next-dev/commit/8de975e164a1b0b50cb62a1356c38791cc342b8c))
+* resolve CodeQL analysis category conflict ([0ddacd5](https://github.com/lucifer3618/next-dev/commit/0ddacd57284723665ca0dee0d37ce16c4547e3be))
+* simplify CodeQL security scanning to avoid category conflict ([16690c9](https://github.com/lucifer3618/next-dev/commit/16690c9e7f8035c2b0b1c15730d3d7c36c3abdbf))
+* update CI/CD workflows to log warnings instead of failing on test failures ([1bb13e9](https://github.com/lucifer3618/next-dev/commit/1bb13e90e2e6c73af3a4511e6488fb6e9968fe77))
+* update issue template URLs to point to the correct repositories ([b4c53a0](https://github.com/lucifer3618/next-dev/commit/b4c53a0bf9aa30f02f6d32010afcf1cb5492ea8a))
+
 ### 0.1.1 (2025-04-10)
 
 
