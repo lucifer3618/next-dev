@@ -13,6 +13,10 @@ Reference documentation:
 
 ## Available Reference Documentation
 
+### Architecture Decision Records (ADRs)
+- [Architecture Decision Records](./adrs/index.md)
+- [ADR Process](./adrs/adr-process.md)
+
 ### Project Structure
 - [Project Directory Structure](./project-structure.md)
 - [File Naming Conventions](./file-naming-conventions.md)

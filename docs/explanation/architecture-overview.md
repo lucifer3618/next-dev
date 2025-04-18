@@ -181,3 +181,4 @@ As the application evolves, we're considering several architectural enhancements
 - [Backend Architecture](./backend-architecture.md)
 - [Data Flow and State Management](./data-flow.md)
 - [Technology Stack Choices](./technology-stack.md)
+- [Architecture Decision Records](../reference/adrs/index.md)
