@@ -24,6 +24,7 @@ Reference documentation:
 
 ### API
 - [API Endpoints Reference](./api-endpoints.md)
+- [API OpenAPI Specification](./api-openapi.md)
 - [API Response Formats](./api-response-formats.md)
 - [Error Codes and Handling](./error-codes.md)
 

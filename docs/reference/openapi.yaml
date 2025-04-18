@@ -1,0 +1,226 @@
+openapi: 3.0.3
+info:
+  title: Next.js Project API
+  description: |
+    API documentation for the Next.js Project.
+    
+    This API provides endpoints for AI-powered features including chat and code generation.
+  version: 0.1.3
+  contact:
+    name: Development Team
+servers:
+  - url: https://next-dev-ruby.vercel.app
+    description: Production server
+  - url: http://localhost:3000
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from authentication
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+              example: validation_error
+            message:
+              type: string
+              description: Human-readable error message
+              example: Invalid request parameters
+            details:
+              type: object
+              description: Additional error details
+      required:
+        - error
+
+    ChatRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: The user's message to send to the AI chat
+          example: "How do I create a React component?"
+      required:
+        - prompt
+
+    ChatResponse:
+      type: object
+      properties:
+        result:
+          type: string
+          description: The AI's response text
+          example: "To create a React component, you can use either a function or a class..."
+
+    CodeGenerationRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          description: The prompt for code generation
+          example: "Generate a React component that displays a user profile"
+      required:
+        - prompt
+
+    CodeGenerationResponse:
+      type: object
+      properties:
+        files:
+          type: object
+          additionalProperties:
+            type: string
+          description: Generated code files
+          example:
+            "UserProfile.jsx": "import React from 'react';\n\nconst UserProfile = ({ user }) => {\n  return (\n    <div className=\"user-profile\">\n      <h2>{user.name}</h2>\n      <p>{user.email}</p>\n    </div>\n  );\n};\n\nexport default UserProfile;"
+
+  responses:
+    UnauthorizedError:
+      description: Access token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: unauthorized
+              message: Authentication required
+
+    ForbiddenError:
+      description: The server understood the request but refuses to authorize it
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: forbidden
+              message: Insufficient permissions
+
+    NotFoundError:
+      description: The specified resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: not_found
+              message: Resource not found
+
+    ValidationError:
+      description: The request parameters failed validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: validation_error
+              message: Invalid request parameters
+              details:
+                field: "prompt"
+                issue: "Required field is missing"
+
+    RateLimitedError:
+      description: Too many requests, please try again later
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: rate_limited
+              message: Too many requests, please try again later
+              details:
+                retryAfter: 30
+
+    InternalServerError:
+      description: An unexpected error occurred on the server
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: internal_error
+              message: An unexpected error occurred
+
+paths:
+  /api/ai-chat:
+    post:
+      summary: Send a message to the AI chat
+      description: |
+        This endpoint allows users to send a message to the AI chat and receive a response.
+        The AI is powered by Google's Gemini model.
+      operationId: sendAiChatMessage
+      tags:
+        - AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/gen-ai-code:
+    post:
+      summary: Generate code using AI
+      description: |
+        This endpoint allows users to generate code using AI.
+        The AI is powered by Google's Gemini model.
+      operationId: generateAiCode
+      tags:
+        - AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeGenerationRequest'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeGenerationResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+externalDocs:
+  description: Additional API documentation
+  url: https://next-dev.vercel.app/docs/reference/api-endpoints
